@@ -372,11 +372,13 @@ func (p *Pilot) newContainer(containerJSON *types.ContainerJSON) error {
 			envLabel := strings.SplitN(e, "=", 2)
 			if len(envLabel) == 2 {
 				labelKey := strings.Replace(envLabel[0], "_", ".", -1)
+				// TODO Env转换成docker label
 				labels[labelKey] = envLabel[1]
 			}
 		}
 	}
 
+	// TODO 生成配置
 	logConfigs, err := p.getLogConfigs(jsonLogPath, mounts, labels)
 	if err != nil {
 		return err
@@ -398,10 +400,12 @@ func (p *Pilot) newContainer(containerJSON *types.ContainerJSON) error {
 	}
 	//TODO validate config before save
 	//log.Debugf("container %s log config: %s", id, logConfig)
+	// TODO 写入配置到filebeat/fluentd的配置目录
 	if err = ioutil.WriteFile(p.piloter.GetConfPath(id), []byte(logConfig), os.FileMode(0644)); err != nil {
 		return err
 	}
 
+	// TODO 发送采集服务配置重载信号
 	p.tryReload()
 	return nil
 }
@@ -479,6 +483,7 @@ func (p *Pilot) hostDirOf(path string, mounts map[string]types.MountPoint) strin
 	for {
 		if point, ok := mounts[path]; ok {
 			if confPath == path {
+				// TODO 挂载点的Source就是主机文件路径
 				return point.Source
 			}
 
@@ -624,6 +629,7 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 		return nil, fmt.Errorf("%s must be a file path, not directory, for %s", path, name)
 	}
 
+	// TODO 获取Docker挂载路径对应的真实Host文件系统路径
 	hostDir := p.hostDirOf(containerDir, mounts)
 	if hostDir == "" {
 		return nil, fmt.Errorf("in log %s: %s is not mount on host", name, path)
@@ -635,6 +641,7 @@ func (p *Pilot) parseLogConfig(name string, info *LogInfoNode, jsonLogPath strin
 		Format:       format.value,
 		File:         file,
 		Tags:         tagMap,
+		// TODO 生成Docker容器日志路径对应的宿主机文件路径
 		HostDir:      filepath.Join(p.baseDir, hostDir),
 		FormatConfig: formatConfig,
 		Target:       target,
@@ -723,6 +730,7 @@ func (p *Pilot) getLogConfigs(jsonLogPath string, mounts []types.MountPoint, lab
 				continue
 			}
 
+			// TODO 解析Env或者docker env指定的要采集的日志路径, 去除前缀得出ES索引名称
 			logLabel := strings.TrimPrefix(k, serviceLogs)
 			if err := root.insert(strings.Split(logLabel, "."), labels[k]); err != nil {
 				return nil, err
@@ -731,10 +739,12 @@ func (p *Pilot) getLogConfigs(jsonLogPath string, mounts []types.MountPoint, lab
 	}
 
 	for name, node := range root.children {
+		// TODO 解析挂载路径对应的宿主机路径
 		logConfig, err := p.parseLogConfig(name, node, jsonLogPath, mountsMap)
 		if err != nil {
 			return nil, err
 		}
+		// TODO 格式化配置
 		CustomConfig(name, customConfigs, logConfig)
 		ret = append(ret, logConfig)
 	}
@@ -748,6 +758,7 @@ func (p *Pilot) exists(containId string) bool {
 	return true
 }
 
+// TODO 生成filebeat/fluentd配置文件
 func (p *Pilot) render(containerId string, container map[string]string, configList []*LogConfig) (string, error) {
 	for _, config := range configList {
 		log.Infof("logs: %s = %v", containerId, config)
